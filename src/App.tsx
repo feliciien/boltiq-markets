@@ -15,6 +15,7 @@ import FAQSection from './components/FAQSection';
 import Footer from './components/Footer';
 import StrategyModal from './components/StrategyModal';
 import { ExpertAdvisor } from './data/marketData';
+import { Analytics } from '@vercel/analytics/react';
 
 export default function App() {
   const [selectedStrategy, setSelectedStrategy] = useState<ExpertAdvisor | null>(null);
@@ -87,6 +88,9 @@ export default function App() {
           onClose={() => setSelectedStrategy(null)}
         />
       )}
+
+      {/* Vercel Web Analytics */}
+      <Analytics />
     </div>
   );
 }
