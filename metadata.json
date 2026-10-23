@@ -1,0 +1,6 @@
+{
+  "name": "BoltIQ Markets",
+  "description": "Institutional MT5 Expert Advisor marketplace, quantitative backtesting laboratory, and proprietary trading evaluation platform.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
