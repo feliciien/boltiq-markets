@@ -42,9 +42,23 @@ type WaitlistResponse = WaitlistErrorResponse | WaitlistSuccessResponse;
 
 export type { WaitlistResponse, WaitlistSuccessResponse, WaitlistErrorResponse };
 
-export async function handleWaitlistRequest(body: WaitlistRequestBody): Promise<{ status: number; body: WaitlistResponse }> {
-  // 1. Request body size limit
-  const bodySize = Buffer.byteLength(JSON.stringify(body), 'utf8');
+export async function handleWaitlistRequest(body: unknown): Promise<{ status: number; body: WaitlistResponse }> {
+  // 1. Validate body is a non-null object
+  if (body === null || body === undefined || typeof body !== 'object' || Array.isArray(body)) {
+    return {
+      status: 400,
+      body: {
+        success: false,
+        error: 'Request body must be a JSON object.',
+        code: 'INVALID_BODY_TYPE',
+      } as WaitlistErrorResponse,
+    };
+  }
+
+  const payload = body as Record<string, unknown>;
+
+  // 2. Request body size limit
+  const bodySize = Buffer.byteLength(JSON.stringify(payload), 'utf8');
   if (bodySize > MAX_BODY_SIZE) {
     return {
       status: 413,
@@ -55,8 +69,10 @@ export async function handleWaitlistRequest(body: WaitlistRequestBody): Promise<
       } as WaitlistErrorResponse,
     };
   }
-  // 2. Honeypot Spam Prevention
-  if (body.website && body.website.trim().length > 0) {
+
+  // 3. Honeypot Spam Prevention
+  const website = payload.website;
+  if (typeof website === 'string' && website.trim().length > 0) {
     return {
       status: 400,
       body: {
@@ -67,58 +83,65 @@ export async function handleWaitlistRequest(body: WaitlistRequestBody): Promise<
     };
   }
 
-  // 3. Input Validation — server-side only, never trust client validation
+  // 4. Input Validation — server-side only, never trust client validation
   const errors: string[] = [];
 
-  if (!body.name || !body.name.trim()) {
+  const name = payload.name;
+  if (typeof name !== 'string' || !name.trim()) {
     errors.push('Name is required.');
-  } else if (body.name.trim().length > 100) {
+  } else if (name.trim().length > 100) {
     errors.push('Name must not exceed 100 characters.');
   }
 
+  const email = payload.email;
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!body.email || typeof body.email !== 'string') {
+  if (typeof email !== 'string' || !emailRegex.test(email)) {
     errors.push('A valid email address is required.');
-  } else if (!emailRegex.test(body.email)) {
-    errors.push('Please provide a valid email address.');
-  } else if (body.email.length > 254) {
+  } else if (email.length > 254) {
     errors.push('Email address is too long.');
   }
 
-  if (!body.privacyConsent) {
+    // TypeScript narrowing - after validation, name and email are strings
+    const validatedName = name as string;
+    const validatedEmail = email as string;
+
+  const privacyConsent = payload.privacyConsent;
+  if (privacyConsent !== true) {
     errors.push('Privacy policy consent is required.');
   }
 
+  const accountSize = payload.accountSize;
   const validSizes = [25000, 50000, 100000, 200000];
-  const parsedSize = Number(body.accountSize);
-  if (!validSizes.includes(parsedSize)) {
+  const parsedSize = Number(accountSize);
+  if (!Number.isInteger(parsedSize) || !validSizes.includes(parsedSize)) {
     errors.push('Invalid account tier selected.');
   }
 
-  if (body.step !== 'one-step' && body.step !== 'two-step') {
+  const step = payload.step;
+  if (step !== 'one-step' && step !== 'two-step') {
     errors.push('Invalid challenge type selected.');
   }
 
   if (errors.length > 0) {
-      return {
-        status: 400,
-        body: {
-          success: false,
-          error: errors.join(' '),
-          code: 'VALIDATION_ERROR',
-        } as WaitlistErrorResponse,
-      };
-    }
-
-    const entry = {
-      id: `wq_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
-      name: body.name.trim().substring(0, 100) || 'Anonymous Trader',
-      email: body.email.toLowerCase().trim(),
-      accountSize: parsedSize,
-      step: body.step,
-      privacyConsent: true,
-      createdAt: new Date().toISOString(),
+    return {
+      status: 400,
+      body: {
+        success: false,
+        error: errors.join(' '),
+        code: 'VALIDATION_ERROR',
+      } as WaitlistErrorResponse,
     };
+  }
+
+  const entry = {
+    id: `wq_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+      name: validatedName.trim().substring(0, 100) || 'Anonymous Trader',
+      email: validatedEmail.toLowerCase().trim(),
+    accountSize: parsedSize,
+    step: step as 'one-step' | 'two-step',
+    privacyConsent: true,
+    createdAt: new Date().toISOString(),
+  };
 
   // 5. Persistence Layer — truthful behavior
   const supabaseUrl = process.env.SUPABASE_URL;
@@ -130,8 +153,8 @@ export async function handleWaitlistRequest(body: WaitlistRequestBody): Promise<
       persisted: false,
       provider: 'unavailable',
       message: 'Waitlist applications cannot be accepted at this time. Production database is not configured.',
-        code: 'SERVICE_UNAVAILABLE',
-      };
+      code: 'SERVICE_UNAVAILABLE',
+    };
     return {
       status: 503,
       body: unavailableResponse,
@@ -139,67 +162,73 @@ export async function handleWaitlistRequest(body: WaitlistRequestBody): Promise<
   }
 
   try {
-      const response = await fetch(`${supabaseUrl}/rest/v1/waitlist`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': supabaseKey,
-          'Authorization': `Bearer ${supabaseKey}`,
-          'Prefer': 'return=representation',
-        },
-        body: JSON.stringify({
-          name: entry.name,
-          email: entry.email,
-          account_tier: entry.accountSize,
-          challenge_type: entry.step,
-          privacy_accepted: true,
-          created_at: entry.createdAt,
-        }),
-      });
+    const response = await fetch(`${supabaseUrl}/rest/v1/waitlist`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': supabaseKey,
+        'Authorization': `Bearer ${supabaseKey}`,
+        'Prefer': 'return=representation',
+      },
+      body: JSON.stringify({
+        name: entry.name,
+        email: entry.email,
+        account_tier: entry.accountSize,
+        challenge_type: entry.step,
+        privacy_accepted: true,
+        created_at: entry.createdAt,
+      }),
+    });
 
-      if (!response.ok) {
-        await response.text();
-        console.error('[waitlist] Supabase insertion failed with status:', response.status);
-        return {
-          status: 502,
-          body: {
-            success: false,
-            error: 'Database connection failed. Please try again shortly.',
-          },
-        };
-      }
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[waitlist] Supabase insertion failed with status:', response.status, errorText);
 
-      const data = await response.json();
+      // Handle unique constraint violation (PostgreSQL error code 23505)
+            if (response.status === 409 || errorText.includes('23505') || errorText.includes('duplicate key')) {
+              return {
+                status: 409,
+                body: {
+                  success: false,
+                  error: 'This email is already registered for the waitlist.',
+                  code: 'DUPLICATE_REGISTRATION',
+                } as WaitlistErrorResponse,
+              };
+            }
+
+      // Other database errors are retryable
       return {
-        status: 201,
-        body: {
-          success: true,
-          persisted: true,
-          provider: 'supabase',
-          id: entry.id,
-          message: 'Evaluation waitlist application successfully recorded.',
-        },
-      };
-    } catch (dbErr) {
-      console.error('[waitlist] Unexpected database error:', String(dbErr));
-      return {
-        status: 500,
+        status: 502,
         body: {
           success: false,
-          error: 'Database service unavailable. Please try again later.',
-          code: 'DATABASE_SERVICE_UNAVAILABLE',
+          error: 'Database connection failed. Please try again shortly.',
+          code: 'DATABASE_ERROR',
         } as WaitlistErrorResponse,
       };
     }
 
-  return {
-    status: 500,
-    body: {
-      success: false,
-      error: 'Internal server error.',
-      code: 'INTERNAL_ERROR',
-    } as WaitlistErrorResponse,
-  };
+    const data = await response.json();
+    return {
+      status: 201,
+      body: {
+        success: true,
+        persisted: true,
+        provider: 'supabase',
+        id: entry.id,
+        message: 'Evaluation waitlist application successfully recorded.',
+      },
+    };
+  } catch (dbErr) {
+    console.error('[waitlist] Unexpected database error:', String(dbErr));
+    return {
+      status: 500,
+      body: {
+        success: false,
+        error: 'Database service unavailable. Please try again later.',
+        code: 'DATABASE_SERVICE_UNAVAILABLE',
+      } as WaitlistErrorResponse,
+    };
+  }
 }
 
 // Default export for Vercel Serverless Function (Node.js runtime)
@@ -225,7 +254,7 @@ export default async function handler(req: any, res: any): Promise<void> {
   }
 
   let parsed: any;
-  
+
   // Use req.body if already parsed by Vercel/body-parser middleware
   if (req.body && typeof req.body === 'object' && Object.keys(req.body).length > 0) {
     parsed = req.body;
