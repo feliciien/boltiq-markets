@@ -11,7 +11,11 @@
 -- Compatibility:
 --   - Safe to run on existing databases (uses IF NOT EXISTS)
 --   - Does not modify existing data
---   - Adds unique constraint on lower(email) for case-insensitive uniqueness
+--   - Adds unique expression index on lower(email) for case-insensitive uniqueness
+--
+-- Pre-migration check for existing case-insensitive duplicates:
+--   SELECT lower(email), count(*) FROM waitlist GROUP BY lower(email) HAVING count(*) > 1;
+-- If duplicates exist, resolve them manually before applying this migration.
 
 -- Create waitlist table if it doesn't exist
 CREATE TABLE IF NOT EXISTS waitlist (
@@ -24,27 +28,14 @@ CREATE TABLE IF NOT EXISTS waitlist (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Create index for faster email lookups (case-insensitive)
-CREATE INDEX IF NOT EXISTS idx_waitlist_email_lower ON waitlist (lower(email));
+-- Create unique expression index for case-insensitive email uniqueness
+-- PostgreSQL does not support expressions in UNIQUE table constraints,
+-- so we use a UNIQUE INDEX instead which provides the same guarantee.
+CREATE UNIQUE INDEX IF NOT EXISTS waitlist_email_unique_lower
+ON waitlist (lower(email));
 
--- Add unique constraint on lower(email) for case-insensitive uniqueness
--- This prevents duplicate registrations regardless of email case
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_constraint
-    WHERE conname = 'waitlist_email_unique'
-    AND conrelid = 'waitlist'::regclass
-  ) THEN
-    ALTER TABLE waitlist
-    ADD CONSTRAINT waitlist_email_unique UNIQUE (lower(email));
-  END IF;
-END $$;
-
--- Verify the constraint was created
--- SELECT conname, contype, pg_get_constraintdef(oid)
--- FROM pg_constraint
--- WHERE conrelid = 'waitlist'::regclass AND contype = 'u';
+-- Verify the index was created
+-- SELECT indexname, indexdef FROM pg_indexes WHERE tablename = 'waitlist' AND indexname = 'waitlist_email_unique_lower';
 
 -- Grant necessary permissions for the API to work
 -- (Adjust roles as needed for your Supabase setup)
