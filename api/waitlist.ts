@@ -8,6 +8,8 @@
  * - If Supabase credentials are missing, returns 503 Service Unavailable.
  * - No visitor IP addresses are stored.
  * - Request body size is limited.
+ * - Duplicate protection via database unique constraint when Supabase is connected.
+ * - 503 responses are never cached; they can be retried after database recovery.
  */
 
 const MAX_BODY_SIZE = 64 * 1024;
@@ -38,35 +40,7 @@ interface WaitlistSuccessResponse {
 
 type WaitlistResponse = WaitlistErrorResponse | WaitlistSuccessResponse;
 
-// Idempotency cache removed - 503 responses can be retried
-const IDEMPOTENCY_TTL_MS = 24 * 60 * 60 * 1000;
-
-function generateIdempotencyKey(body: WaitlistRequestBody): string {
-  return `${body.email.toLowerCase().trim()}|${body.accountSize}|${body.step}`;
-}
-
-function checkIdempotency(key: string): WaitlistResponse | null {
-  const cached = idempotencyCache.get(key);
-  if (!cached) return null;
-  if (Date.now() - cached.timestamp > IDEMPOTENCY_TTL_MS) {
-    idempotencyCache.delete(key);
-    return null;
-  }
-  return cached.response;
-}
-
-function storeIdempotency(key: string, response: WaitlistResponse): void {
-  idempotencyCache.set(key, { timestamp: Date.now(), response });
-}
-
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, value] of idempotencyCache.entries()) {
-    if (now - value.timestamp > IDEMPOTENCY_TTL_MS) {
-      idempotencyCache.delete(key);
-    }
-  }
-}, 60 * 60 * 1000).unref();
+export type { WaitlistResponse, WaitlistSuccessResponse, WaitlistErrorResponse };
 
 export async function handleWaitlistRequest(body: WaitlistRequestBody): Promise<{ status: number; body: WaitlistResponse }> {
   // 1. Request body size limit
@@ -126,38 +100,25 @@ export async function handleWaitlistRequest(body: WaitlistRequestBody): Promise<
   }
 
   if (errors.length > 0) {
-    return {
-      status: 400,
-      body: {
-        success: false,
-        error: errors.join(' '),
-        code: 'VALIDATION_ERROR',
-      } as WaitlistErrorResponse,
-    };
-  }
+      return {
+        status: 400,
+        body: {
+          success: false,
+          error: errors.join(' '),
+          code: 'VALIDATION_ERROR',
+        } as WaitlistErrorResponse,
+      };
+    }
 
-  // 4. Idempotency check — reject duplicate submissions
-  const idempotencyKey = generateIdempotencyKey(body);
-  const cached = checkIdempotency(idempotencyKey);
-  if (cached) {
-    return {
-      status: 200,
-      body: {
-        ...cached,
-        message: 'Duplicate submission detected. Your application was already received.',
-      } as WaitlistSuccessResponse,
+    const entry = {
+      id: `wq_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+      name: body.name.trim().substring(0, 100) || 'Anonymous Trader',
+      email: body.email.toLowerCase().trim(),
+      accountSize: parsedSize,
+      step: body.step,
+      privacyConsent: true,
+      createdAt: new Date().toISOString(),
     };
-  }
-
-  const entry = {
-    id: `wq_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
-    name: body.name.trim().substring(0, 100) || 'Anonymous Trader',
-    email: body.email.toLowerCase().trim(),
-    accountSize: parsedSize,
-    step: body.step,
-    privacyConsent: true,
-    createdAt: new Date().toISOString(),
-  };
 
   // 5. Persistence Layer — truthful behavior
   const supabaseUrl = process.env.SUPABASE_URL;
@@ -169,8 +130,8 @@ export async function handleWaitlistRequest(body: WaitlistRequestBody): Promise<
       persisted: false,
       provider: 'unavailable',
       message: 'Waitlist applications cannot be accepted at this time. Production database is not configured.',
-    };
-    storeIdempotency(idempotencyKey, unavailableResponse);
+        code: 'SERVICE_UNAVAILABLE',
+      };
     return {
       status: 503,
       body: unavailableResponse,
@@ -263,37 +224,55 @@ export default async function handler(req: any, res: any): Promise<void> {
     });
   }
 
-  let bodyRaw = '';
-  try {
-    for await (const chunk of req as any) {
-      bodyRaw += chunk;
-      if (Buffer.byteLength(bodyRaw, 'utf8') > MAX_BODY_SIZE) {
-        res.setHeader('Content-Type', 'application/json');
-        return res.status(413).json({
-          success: false,
-          error: 'Request payload too large.',
-          code: 'PAYLOAD_TOO_LARGE',
-        });
+  let parsed: any;
+  
+  // Use req.body if already parsed by Vercel/body-parser middleware
+  if (req.body && typeof req.body === 'object' && Object.keys(req.body).length > 0) {
+    parsed = req.body;
+  } else {
+    // Fallback: read raw body for cases where body-parser is not configured
+    let bodyRaw = '';
+    try {
+      for await (const chunk of req as any) {
+        bodyRaw += chunk;
+        if (Buffer.byteLength(bodyRaw, 'utf8') > MAX_BODY_SIZE) {
+          res.setHeader('Content-Type', 'application/json');
+          return res.status(413).json({
+            success: false,
+            error: 'Request payload too large.',
+            code: 'PAYLOAD_TOO_LARGE',
+          });
+        }
       }
+    } catch {
+      res.setHeader('Content-Type', 'application/json');
+      return res.status(400).json({
+        success: false,
+        error: 'Failed to read request body.',
+        code: 'BODY_READ_ERROR',
+      });
     }
-  } catch {
-    res.setHeader('Content-Type', 'application/json');
-    return res.status(400).json({
-      success: false,
-      error: 'Failed to read request body.',
-      code: 'BODY_READ_ERROR',
-    });
+
+    try {
+      parsed = JSON.parse(bodyRaw || '{}');
+    } catch {
+      res.setHeader('Content-Type', 'application/json');
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid JSON payload.',
+        code: 'INVALID_JSON',
+      });
+    }
   }
 
-  let parsed: any;
-  try {
-    parsed = JSON.parse(bodyRaw || '{}');
-  } catch {
+  // Strict payload size limit check on parsed body
+  const bodySize = Buffer.byteLength(JSON.stringify(parsed), 'utf8');
+  if (bodySize > MAX_BODY_SIZE) {
     res.setHeader('Content-Type', 'application/json');
-    return res.status(400).json({
+    return res.status(413).json({
       success: false,
-      error: 'Invalid JSON payload.',
-      code: 'INVALID_JSON',
+      error: 'Request payload too large.',
+      code: 'PAYLOAD_TOO_LARGE',
     });
   }
 
