@@ -1,4 +1,4 @@
-import { useState, useId, useEffect } from 'react';
+import { useState, useId } from 'react';
 import { ShieldCheck, CheckCircle2, ArrowRight, HelpCircle, AlertCircle, Sparkles, Database } from 'lucide-react';
 import { calculatePropChallengeRules } from '../utils/quantCalculations';
 
@@ -30,23 +30,6 @@ export default function PropEvaluation() {
   const nameInputId = useId();
   const consentInputId = useId();
 
-  // Load existing registration from localStorage if available
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem('boltiq_waitlist_registrations');
-      if (stored) {
-        const parsed: WaitlistEntry[] = JSON.parse(stored);
-        if (parsed.length > 0) {
-          const latest = parsed[parsed.length - 1];
-          setRegisteredData(latest);
-          setFormSubmitted(true);
-        }
-      }
-    } catch {
-      // Storage unavailable or disabled
-    }
-  }, []);
-
   const rules = calculatePropChallengeRules(selectedAccountSize, challengeStep);
 
   const profitTargetPhase1Dollar = (selectedAccountSize * rules.profitTargetPhase1Pct) / 100;
@@ -71,8 +54,8 @@ export default function PropEvaluation() {
 
     try {
       const payload = {
-        name: name || 'Anonymous Trader',
-        email: email.trim(),
+        name: name.trim() || 'Anonymous Trader',
+        email: email.trim().toLowerCase(),
         accountSize: selectedAccountSize,
         step: challengeStep,
         privacyConsent: true,
@@ -89,8 +72,23 @@ export default function PropEvaluation() {
 
       const data = await res.json();
 
+      // 503: Database not configured — be honest, never fake confirmation
+      if (res.status === 503) {
+        setFormError('Waitlist applications are temporarily unavailable. Our evaluation database is not yet configured. Please check back soon.');
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Duplicate submission (idempotent replay)
+      if (res.status === 200 && !data.success && data.provider === 'unavailable') {
+        setFormError('You have already submitted an application for this account tier. We will contact you shortly.');
+        setIsSubmitting(false);
+        return;
+      }
+
       if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Failed to submit application. Please check your details and try again.');
+        setFormError(data.error || 'Failed to submit application. Please check your details and try again.');
+        return;
       }
 
       const confirmedEntry: WaitlistEntry = {
@@ -102,16 +100,6 @@ export default function PropEvaluation() {
         provider: data.provider,
         timestamp: new Date().toISOString(),
       };
-
-      // Backup to localStorage
-      try {
-        const existing = localStorage.getItem('boltiq_waitlist_registrations');
-        const list: WaitlistEntry[] = existing ? JSON.parse(existing) : [];
-        list.push(confirmedEntry);
-        localStorage.setItem('boltiq_waitlist_registrations', JSON.stringify(list));
-      } catch {
-        // Ignored
-      }
 
       setRegisteredData(confirmedEntry);
       setFormSubmitted(true);

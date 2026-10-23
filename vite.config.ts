@@ -24,7 +24,7 @@ function apiPlugin() {
             const { handleWaitlistRequest } = await import('./api/waitlist.ts');
             const parsed = JSON.parse(bodyRaw || '{}');
             const clientIp = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '127.0.0.1';
-            const result = await handleWaitlistRequest(parsed, String(clientIp));
+            const result = await handleWaitlistRequest(parsed);
             res.statusCode = result.status;
             res.setHeader('Content-Type', 'application/json');
             res.end(JSON.stringify(result.body));
