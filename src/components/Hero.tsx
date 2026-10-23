@@ -65,7 +65,7 @@ export default function Hero({ onExploreEAs, onLaunchLab }: HeroProps) {
             </h1>
 
             <p className="text-base sm:text-lg text-slate-300 leading-relaxed max-w-2xl font-normal">
-              BoltIQ Markets engineers systematic, institutional-grade algorithmic strategies for MetaTrader 5. Backtested on 99.9% real-tick feeds with strictly audited mathematical risk controls—engineered for professional traders and simulated proprietary evaluation challenges.
+              BoltIQ Markets engineers systematic, institutional-grade algorithmic strategies for MetaTrader 5. Backtested on simulated 99.9% real-tick feeds with strictly audited mathematical risk controls—engineered for professional traders and simulated proprietary evaluation challenges.
             </p>
 
             {/* Zero-Pill Bullet Guarantees */}
@@ -76,7 +76,7 @@ export default function Hero({ onExploreEAs, onLaunchLab }: HeroProps) {
               </div>
               <div className="flex items-center gap-2">
                 <Check className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                <span>99.9% Tick-Data Precision & Real Spreads</span>
+                <span>99.9% Simulated Tick-Data Precision</span>
               </div>
               <div className="flex items-center gap-2">
                 <Check className="w-3.5 h-3.5 text-amber-400 shrink-0" />
@@ -84,7 +84,7 @@ export default function Hero({ onExploreEAs, onLaunchLab }: HeroProps) {
               </div>
               <div className="flex items-center gap-2">
                 <Check className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                <span>Ready for 1-Step & 2-Step Prop Rules</span>
+                <span>Designed for 1-Step & 2-Step Prop Rules</span>
               </div>
             </div>
 
@@ -240,7 +240,7 @@ export default function Hero({ onExploreEAs, onLaunchLab }: HeroProps) {
           <div className="space-y-1">
             <div className="flex items-center gap-2 text-xs font-mono text-amber-400">
               <Cpu className="w-4 h-4 text-amber-400" />
-              <span className="font-semibold text-slate-200">99.9% Real-Tick Precision</span>
+              <span className="font-semibold text-slate-200">99.9% Simulated Real-Tick Precision</span>
             </div>
             <p className="text-xs text-slate-400 leading-relaxed">
               Simulated against variable broker spreads and real execution slippage modeled across 5+ years of historical data.
@@ -266,6 +266,13 @@ export default function Hero({ onExploreEAs, onLaunchLab }: HeroProps) {
               Parameters configured specifically to comply with 4-5% daily loss limits and 8-10% maximum drawdown evaluation rules.
             </p>
           </div>
+        </div>
+
+        {/* Simulated Data Disclosure */}
+        <div className="mt-12 pt-8 border-t border-slate-800/80 p-4 rounded-lg bg-[#080d18] border border-slate-800/80 text-xs text-slate-400 leading-relaxed font-mono">
+          <p>
+            <strong className="text-slate-300">Important Disclosure:</strong> All performance metrics, backtest results, and quantitative data shown throughout this site are based on simulated historical or hypothetical calculations. Hypothetical or simulated performance results have inherent limitations; unlike an actual performance record, simulated results do not represent actual trading and do not guarantee future profitability. All Expert Advisors are provided as software tools for MetaTrader 5 and are not investment advice. BoltIQ Markets and WorkFusionApp, Inc. are not registered broker-dealers or investment advisors.
+          </p>
         </div>
       </div>
     </section>
