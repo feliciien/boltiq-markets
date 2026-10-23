@@ -79,7 +79,7 @@ test('Vercel handler: valid POST with raw JSON body', async () => {
       step: 'two-step',
       privacyConsent: true,
     }),
-    body: null,
+    body: undefined, // undefined triggers raw body reading
   });
   const res = createMockResponse();
 
@@ -90,7 +90,7 @@ test('Vercel handler: valid POST with raw JSON body', async () => {
   assert.equal(res.body.code, 'SERVICE_UNAVAILABLE');
 });
 
-test('Vercel handler: empty JSON object', async () => {
+test('Vercel handler: empty JSON object (treated as parsed)', async () => {
   delete process.env.SUPABASE_URL;
   delete process.env.SUPABASE_SERVICE_ROLE_KEY;
   delete process.env.SUPABASE_ANON_KEY;
@@ -104,10 +104,11 @@ test('Vercel handler: empty JSON object', async () => {
 
   assert.equal(res.statusCode, 400);
   assert.equal(res.body.success, false);
+  // Empty object is treated as parsed body, fails validation
   assert.equal(res.body.code, 'VALIDATION_ERROR');
 });
 
-test('Vercel handler: null body', async () => {
+test('Vercel handler: null body (treated as parsed)', async () => {
   delete process.env.SUPABASE_URL;
   delete process.env.SUPABASE_SERVICE_ROLE_KEY;
   delete process.env.SUPABASE_ANON_KEY;
@@ -121,8 +122,8 @@ test('Vercel handler: null body', async () => {
 
   assert.equal(res.statusCode, 400);
   assert.equal(res.body.success, false);
-  // null body becomes {} after JSON.parse, so it fails validation
-  assert.equal(res.body.code, 'VALIDATION_ERROR');
+  // null is a defined value, treated as parsed body, fails type check
+  assert.equal(res.body.code, 'INVALID_BODY_TYPE');
 });
 
 test('Vercel handler: malformed JSON', async () => {
@@ -132,7 +133,7 @@ test('Vercel handler: malformed JSON', async () => {
 
   const req = createMockRequest({
     bodyRaw: '{ invalid json }',
-    body: null,
+    body: undefined, // undefined triggers raw body reading
   });
   const res = createMockResponse();
 
@@ -458,7 +459,7 @@ test('Vercel handler: concurrent submissions handled correctly', async () => {
   }
 });
 
-test('Vercel handler: array body rejected', async () => {
+test('Vercel handler: array body rejected (treated as parsed)', async () => {
   delete process.env.SUPABASE_URL;
   delete process.env.SUPABASE_SERVICE_ROLE_KEY;
   delete process.env.SUPABASE_ANON_KEY;
@@ -472,10 +473,11 @@ test('Vercel handler: array body rejected', async () => {
 
   assert.equal(res.statusCode, 400);
   assert.equal(res.body.success, false);
+  // Array is a defined value, treated as parsed body, fails type check
   assert.equal(res.body.code, 'INVALID_BODY_TYPE');
 });
 
-test('Vercel handler: string body rejected', async () => {
+test('Vercel handler: string body rejected (treated as parsed)', async () => {
   delete process.env.SUPABASE_URL;
   delete process.env.SUPABASE_SERVICE_ROLE_KEY;
   delete process.env.SUPABASE_ANON_KEY;
@@ -489,17 +491,18 @@ test('Vercel handler: string body rejected', async () => {
 
   assert.equal(res.statusCode, 400);
   assert.equal(res.body.success, false);
-  // String body becomes string after JSON.parse, fails validation
-  assert.equal(res.body.code, 'VALIDATION_ERROR');
+  // String is a defined value, treated as parsed body, fails type check
+  assert.equal(res.body.code, 'INVALID_BODY_TYPE');
 });
 
-test('Vercel handler: undefined body rejected', async () => {
+test('Vercel handler: undefined body falls through to raw reading', async () => {
   delete process.env.SUPABASE_URL;
   delete process.env.SUPABASE_SERVICE_ROLE_KEY;
   delete process.env.SUPABASE_ANON_KEY;
 
   const req = createMockRequest({
     body: undefined,
+    bodyRaw: '{}',
   });
   const res = createMockResponse();
 
@@ -507,6 +510,6 @@ test('Vercel handler: undefined body rejected', async () => {
 
   assert.equal(res.statusCode, 400);
   assert.equal(res.body.success, false);
-  // undefined body becomes {} after JSON.parse, fails validation
+  // undefined body falls through to raw reading, becomes {} after JSON.parse, fails validation
   assert.equal(res.body.code, 'VALIDATION_ERROR');
 });

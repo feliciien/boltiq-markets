@@ -101,9 +101,9 @@ export async function handleWaitlistRequest(body: unknown): Promise<{ status: nu
     errors.push('Email address is too long.');
   }
 
-    // TypeScript narrowing - after validation, name and email are strings
-    const validatedName = name as string;
-    const validatedEmail = email as string;
+  // TypeScript narrowing - after validation, name and email are strings
+  const validatedName = name as string;
+  const validatedEmail = email as string;
 
   const privacyConsent = payload.privacyConsent;
   if (privacyConsent !== true) {
@@ -135,8 +135,8 @@ export async function handleWaitlistRequest(body: unknown): Promise<{ status: nu
 
   const entry = {
     id: `wq_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
-      name: validatedName.trim().substring(0, 100) || 'Anonymous Trader',
-      email: validatedEmail.toLowerCase().trim(),
+    name: validatedName.trim().substring(0, 100) || 'Anonymous Trader',
+    email: validatedEmail.toLowerCase().trim(),
     accountSize: parsedSize,
     step: step as 'one-step' | 'two-step',
     privacyConsent: true,
@@ -182,19 +182,29 @@ export async function handleWaitlistRequest(body: unknown): Promise<{ status: nu
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('[waitlist] Supabase insertion failed with status:', response.status, errorText);
+      // Sanitized logging: never log raw error bodies, secrets, PII, or auth headers
+      console.error('[waitlist] Supabase insertion failed', { status: response.status });
 
-      // Handle unique constraint violation (PostgreSQL error code 23505)
-            if (response.status === 409 || errorText.includes('23505') || errorText.includes('duplicate key')) {
-              return {
-                status: 409,
-                body: {
-                  success: false,
-                  error: 'This email is already registered for the waitlist.',
-                  code: 'DUPLICATE_REGISTRATION',
-                } as WaitlistErrorResponse,
-              };
-            }
+      // Handle unique constraint violation using structured PostgreSQL error codes
+      // Parse error response for structured error code (PostgreSQL returns JSON with 'code' field)
+      let pgErrorCode: string | undefined;
+      try {
+        const errorJson = JSON.parse(errorText);
+        pgErrorCode = errorJson.code;
+      } catch {
+        // Not JSON, ignore
+      }
+
+      if (response.status === 409 || pgErrorCode === '23505') {
+        return {
+          status: 409,
+          body: {
+            success: false,
+            error: 'This email is already registered for the waitlist.',
+            code: 'DUPLICATE_REGISTRATION',
+          } as WaitlistErrorResponse,
+        };
+      }
 
       // Other database errors are retryable
       return {
@@ -208,6 +218,19 @@ export async function handleWaitlistRequest(body: unknown): Promise<{ status: nu
     }
 
     const data = await response.json();
+    // Verify that a successful database response represents an actual inserted row
+    if (!Array.isArray(data) || data.length === 0) {
+      console.error('[waitlist] Unexpected empty response from Supabase');
+      return {
+        status: 500,
+        body: {
+          success: false,
+          error: 'Database returned unexpected response.',
+          code: 'DATABASE_UNEXPECTED_RESPONSE',
+        } as WaitlistErrorResponse,
+      };
+    }
+
     return {
       status: 201,
       body: {
@@ -219,7 +242,8 @@ export async function handleWaitlistRequest(body: unknown): Promise<{ status: nu
       },
     };
   } catch (dbErr) {
-    console.error('[waitlist] Unexpected database error:', String(dbErr));
+    // Sanitized logging: never log raw error details that might contain secrets
+    console.error('[waitlist] Unexpected database error');
     return {
       status: 500,
       body: {
@@ -256,7 +280,9 @@ export default async function handler(req: any, res: any): Promise<void> {
   let parsed: any;
 
   // Use req.body if already parsed by Vercel/body-parser middleware
-  if (req.body && typeof req.body === 'object' && Object.keys(req.body).length > 0) {
+  // Treat ANY defined req.body (including {}, null, arrays) as already parsed
+  // to avoid re-reading a consumed request stream
+  if (req.body !== undefined) {
     parsed = req.body;
   } else {
     // Fallback: read raw body for cases where body-parser is not configured
