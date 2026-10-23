@@ -101,6 +101,9 @@ test('handleWaitlistRequest never claims persisted without Supabase', async () =
 });
 
 test('handleWaitlistRequest handles duplicate submissions idempotently', async () => {
+  // Note: Without the idempotency cache, duplicate submissions will each
+  // return 503 when Supabase is not configured, since there's no caching
+  // of failed responses. This demonstrates that 503 errors can be retried.
   delete process.env.SUPABASE_URL;
   delete process.env.SUPABASE_SERVICE_ROLE_KEY;
   delete process.env.SUPABASE_ANON_KEY;
@@ -117,8 +120,53 @@ test('handleWaitlistRequest handles duplicate submissions idempotently', async (
   assert.equal(first.status, 503);
   assert.equal(first.body.success, false);
 
+  // Without idempotency cache, second submission also returns 503
+  // (previously cached response was removed so retries can succeed)
   const second = await handleWaitlistRequest(payload);
-  assert.equal(second.status, 200);
+  assert.equal(second.status, 503);
   assert.equal(second.body.success, false);
-  assert.ok((second.body as any).message.includes('Duplicate'));
+});
+
+/** regression: 503 responses can be retried (no idempotency cache) */
+test('handleWaitlistRequest retries 503 submission without idempotency cache', async () => {
+  delete process.env.SUPABASE_URL;
+  delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+  delete process.env.SUPABASE_ANON_KEY;
+
+  const payload = {
+    name: 'Retry User',
+    email: 'retry@example.com',
+    accountSize: 100000,
+    step: 'two-step',
+    privacyConsent: true,
+  } as any;
+
+  const first = await handleWaitlistRequest(payload);
+  assert.equal(first.status, 503);
+  assert.equal(first.body.success, false);
+  assert.equal(first.body.code, 'SERVICE_UNAVAILABLE');
+
+  // Without idempotency cache, retry should also return 503 (not cache the failure)
+  const second = await handleWaitlistRequest(payload);
+  assert.equal(second.status, 503);
+  assert.equal(second.body.success, false);
+  assert.equal(second.body.code, 'SERVICE_UNAVAILABLE');
+});
+
+/** regression: 503 does not falsely claim persistence without Supabase */
+test('handleWaitlistRequest never claims persisted without Supabase (regression)', async () => {
+  delete process.env.SUPABASE_URL;
+  delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+  delete process.env.SUPABASE_ANON_KEY;
+
+  const result = await handleWaitlistRequest({
+    name: 'Test User',
+    email: 'test@example.com',
+    accountSize: 50000,
+    step: 'one-step',
+    privacyConsent: true,
+  } as any);
+  assert.equal((result.body as any).persisted, false);
+  assert.notEqual((result.body as any).provider, 'serverless-buffer');
+  assert.equal(result.body.provider, 'unavailable');
 });

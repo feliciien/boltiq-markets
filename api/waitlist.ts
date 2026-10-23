@@ -38,7 +38,7 @@ interface WaitlistSuccessResponse {
 
 type WaitlistResponse = WaitlistErrorResponse | WaitlistSuccessResponse;
 
-const idempotencyCache = new Map<string, { timestamp: number; response: WaitlistResponse }>();
+// Idempotency cache removed - 503 responses can be retried
 const IDEMPOTENCY_TTL_MS = 24 * 60 * 60 * 1000;
 
 function generateIdempotencyKey(body: WaitlistRequestBody): string {
