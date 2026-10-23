@@ -1,6 +1,16 @@
-import { useState, useId } from 'react';
-import { ShieldCheck, CheckCircle2, ArrowRight, HelpCircle, AlertCircle, Sparkles } from 'lucide-react';
+import { useState, useId, useEffect } from 'react';
+import { ShieldCheck, CheckCircle2, ArrowRight, HelpCircle, AlertCircle, Sparkles, Database } from 'lucide-react';
 import { calculatePropChallengeRules } from '../utils/quantCalculations';
+
+interface WaitlistEntry {
+  id?: string;
+  name: string;
+  email: string;
+  accountSize: number;
+  step: string;
+  provider?: string;
+  timestamp: string;
+}
 
 export default function PropEvaluation() {
   const [selectedAccountSize, setSelectedAccountSize] = useState<number>(100000);
@@ -9,11 +19,33 @@ export default function PropEvaluation() {
   // Waitlist form state
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [privacyConsent, setPrivacyConsent] = useState(false);
+  const [honeypot, setHoneypot] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formSubmitted, setFormSubmitted] = useState(false);
+  const [registeredData, setRegisteredData] = useState<WaitlistEntry | null>(null);
   const [formError, setFormError] = useState('');
 
   const emailInputId = useId();
   const nameInputId = useId();
+  const consentInputId = useId();
+
+  // Load existing registration from localStorage if available
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('boltiq_waitlist_registrations');
+      if (stored) {
+        const parsed: WaitlistEntry[] = JSON.parse(stored);
+        if (parsed.length > 0) {
+          const latest = parsed[parsed.length - 1];
+          setRegisteredData(latest);
+          setFormSubmitted(true);
+        }
+      }
+    } catch {
+      // Storage unavailable or disabled
+    }
+  }, []);
 
   const rules = calculatePropChallengeRules(selectedAccountSize, challengeStep);
 
@@ -24,14 +56,70 @@ export default function PropEvaluation() {
   const dailyLossLimitDollar = (selectedAccountSize * rules.dailyLossLimitPct) / 100;
   const maxDrawdownDollar = (selectedAccountSize * rules.maxDrawdownPct) / 100;
 
-  const handleSubmitWaitlist = (e: React.FormEvent) => {
+  const handleSubmitWaitlist = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !email.includes('@') || !email.includes('.')) {
       setFormError('Please provide a valid institutional or personal email address.');
       return;
     }
+    if (!privacyConsent) {
+      setFormError('Please accept the privacy policy to receive evaluation cohort access.');
+      return;
+    }
     setFormError('');
-    setFormSubmitted(true);
+    setIsSubmitting(true);
+
+    try {
+      const payload = {
+        name: name || 'Anonymous Trader',
+        email: email.trim(),
+        accountSize: selectedAccountSize,
+        step: challengeStep,
+        privacyConsent: true,
+        website: honeypot, // Spam honeypot
+      };
+
+      const res = await fetch('/api/waitlist', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Failed to submit application. Please check your details and try again.');
+      }
+
+      const confirmedEntry: WaitlistEntry = {
+        id: data.id,
+        name: payload.name,
+        email: payload.email,
+        accountSize: payload.accountSize,
+        step: payload.step,
+        provider: data.provider,
+        timestamp: new Date().toISOString(),
+      };
+
+      // Backup to localStorage
+      try {
+        const existing = localStorage.getItem('boltiq_waitlist_registrations');
+        const list: WaitlistEntry[] = existing ? JSON.parse(existing) : [];
+        list.push(confirmedEntry);
+        localStorage.setItem('boltiq_waitlist_registrations', JSON.stringify(list));
+      } catch {
+        // Ignored
+      }
+
+      setRegisteredData(confirmedEntry);
+      setFormSubmitted(true);
+    } catch (err: any) {
+      setFormError(err.message || 'Submission error. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -245,27 +333,50 @@ export default function PropEvaluation() {
               </p>
 
               {formSubmitted ? (
-                <div className="mt-6 p-4 rounded-lg bg-emerald-950/70 border border-emerald-500/50 text-emerald-300 space-y-2">
+                <div className="mt-6 p-4 rounded-lg bg-emerald-950/70 border border-emerald-500/50 text-emerald-300 space-y-2.5">
                   <div className="flex items-center gap-2 font-mono text-xs font-bold">
                     <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                    <span>Application Received</span>
+                    <span>Application Recorded Successfully</span>
                   </div>
                   <p className="text-[11px] font-mono text-emerald-200/90 leading-relaxed">
-                    Thank you, {name || 'Trader'}. We have reserved your evaluation spot for the ${selectedAccountSize.toLocaleString()} tier at <code className="text-white">{email}</code>. You will receive launch instructions before public availability.
+                    Thank you, {registeredData?.name || name || 'Trader'}. Your evaluation cohort application for the ${(registeredData?.accountSize || selectedAccountSize).toLocaleString()} USD tier has been validated and queued for <code className="text-white">{registeredData?.email || email}</code>.
                   </p>
+                  <div className="p-2 bg-[#060b14]/70 rounded border border-emerald-800/40 text-[10px] text-slate-300 font-mono space-y-1">
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Queue ID:</span>
+                      <span className="text-amber-400">{registeredData?.id || 'QUEUED_STAGING'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Persistence Status:</span>
+                      <span className="text-emerald-400">Server API Validated ({registeredData?.provider || 'serverless-buffer'})</span>
+                    </div>
+                  </div>
                   <button
                     onClick={() => {
                       setFormSubmitted(false);
                       setName('');
                       setEmail('');
+                      setPrivacyConsent(false);
                     }}
-                    className="text-[11px] font-mono text-amber-400 hover:underline pt-2 block cursor-pointer"
+                    className="text-[11px] font-mono text-amber-400 hover:underline pt-1 block cursor-pointer"
                   >
-                    Submit another email
+                    Register another application
                   </button>
                 </div>
               ) : (
                 <form onSubmit={handleSubmitWaitlist} className="mt-6 space-y-4">
+                  {/* Honeypot Spam Prevention Field */}
+                  <input
+                    type="text"
+                    name="website"
+                    tabIndex={-1}
+                    autoComplete="off"
+                    value={honeypot}
+                    onChange={(e) => setHoneypot(e.target.value)}
+                    className="hidden"
+                    aria-hidden="true"
+                  />
+
                   <div>
                     <label htmlFor={nameInputId} className="block text-xs font-mono text-slate-400 mb-1">
                       Full Name:
@@ -304,6 +415,20 @@ export default function PropEvaluation() {
                     </div>
                   </div>
 
+                  {/* Privacy Policy Consent Checkbox */}
+                  <div className="flex items-start gap-2 pt-1">
+                    <input
+                      id={consentInputId}
+                      type="checkbox"
+                      checked={privacyConsent}
+                      onChange={(e) => setPrivacyConsent(e.target.checked)}
+                      className="mt-0.5 accent-amber-400 rounded cursor-pointer"
+                    />
+                    <label htmlFor={consentInputId} className="text-[11px] text-slate-300 leading-snug cursor-pointer">
+                      I agree to receive simulated evaluation challenge invitations and accept the WorkFusionApp, Inc. privacy policy.
+                    </label>
+                  </div>
+
                   {formError && (
                     <div className="text-[11px] font-mono text-red-400 flex items-center gap-1.5">
                       <AlertCircle className="w-3.5 h-3.5 shrink-0" />
@@ -313,9 +438,10 @@ export default function PropEvaluation() {
 
                   <button
                     type="submit"
-                    className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-bold text-xs rounded-md shadow-md transition-all cursor-pointer whitespace-nowrap"
+                    disabled={isSubmitting}
+                    className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 disabled:opacity-60 text-slate-950 font-bold text-xs rounded-md shadow-md transition-all cursor-pointer whitespace-nowrap"
                   >
-                    <span>Reserve Evaluation Spot</span>
+                    <span>{isSubmitting ? 'Submitting to Server...' : 'Reserve Evaluation Spot'}</span>
                     <ArrowRight className="w-4 h-4" />
                   </button>
                 </form>

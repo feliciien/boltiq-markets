@@ -99,18 +99,18 @@ export default function Footer({ onOpenWaitlist, onLaunchLab }: FooterProps) {
           </p>
 
           <p>
-            <strong>Technology Provider Notice:</strong> BoltIQ Markets is a financial technology software provider and quantitative research laboratory. BoltIQ Markets is not a registered broker-dealer, investment advisor, asset manager, or commodity pool operator, and does not provide financial advice, broker execution, or custody of customer funds.
+            <strong>Corporate & Technology Provider Notice:</strong> BoltIQ Markets is a proprietary financial technology software product and quantitative research brand developed by <strong>WorkFusionApp, Inc.</strong> BoltIQ Markets and WorkFusionApp, Inc. are not registered broker-dealers, investment advisors, asset managers, or commodity pool operators, and do not provide investment advice, broker execution, or custody of customer funds.
           </p>
 
           <p>
-            <strong>Trademark Disclaimer:</strong> MetaTrader 5 and MQL5 are registered trademarks of MetaQuotes Software Corp. BoltIQ Markets is an independent software development entity and is not affiliated with or endorsed by MetaQuotes Software Corp.
+            <strong>Trademark Disclaimer:</strong> MetaTrader 5 and MQL5 are registered trademarks of MetaQuotes Software Corp. BoltIQ Markets is an independent software development laboratory and is not affiliated with or endorsed by MetaQuotes Software Corp.
           </p>
         </div>
 
         {/* Bottom copyright and legal bar */}
         <div className="mt-8 pt-6 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-4 text-slate-400 text-xs">
           <div>
-            © {new Date().getFullYear()} BoltIQ Markets (boltiqmarkets.com). All rights reserved.
+            © {new Date().getFullYear()} <strong>WorkFusionApp, Inc.</strong> · BoltIQ Markets (<a href="https://boltiqmarkets.com" className="text-amber-400 hover:underline">boltiqmarkets.com</a> · <a href="https://www.boltiqmarkets.com" className="text-slate-300 hover:underline">www.boltiqmarkets.com</a>). All rights reserved.
           </div>
 
           <div className="flex items-center gap-4 text-slate-400">
