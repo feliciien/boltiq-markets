@@ -1,0 +1,6 @@
+# robots.txt for https://boltiqmarkets.com
+User-agent: *
+Allow: /
+
+Sitemap: https://boltiqmarkets.com/sitemap.xml
+Host: https://boltiqmarkets.com
