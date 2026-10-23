@@ -61,6 +61,7 @@ test('Vercel handler: valid POST with pre-parsed body', async () => {
   await handler(req, res);
 
   assert.equal(res.statusCode, 503);
+  assert.equal(res.headers['cache-control'], 'no-store');
   assert.equal(res.body.success, false);
   assert.equal(res.body.code, 'SERVICE_UNAVAILABLE');
   assert.equal(res.body.provider, 'unavailable');

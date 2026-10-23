@@ -144,7 +144,7 @@ export async function handleWaitlistRequest(body: unknown): Promise<{ status: nu
 
   // 5. Persistence Layer — truthful behavior
   const supabaseUrl = process.env.SUPABASE_URL;
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!supabaseUrl || !supabaseKey) {
     const unavailableResponse: WaitlistSuccessResponse = {
@@ -218,7 +218,7 @@ export async function handleWaitlistRequest(body: unknown): Promise<{ status: nu
 
     const data = await response.json();
     // Verify that a successful database response represents an actual inserted row
-    if (!Array.isArray(data) || data.length === 0) {
+    if (!Array.isArray(data) || data.length !== 1 || typeof data[0]?.id !== 'string' || !data[0].id.trim()) {
       console.error('[waitlist] Unexpected empty response from Supabase');
       return {
         status: 500,
@@ -260,6 +260,7 @@ export async function handleWaitlistRequest(body: unknown): Promise<{ status: nu
 
 // Default export for Vercel Serverless Function (Node.js runtime)
 export default async function handler(req: any, res: any): Promise<void> {
+  res.setHeader('Cache-Control', 'no-store');
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
     res.setHeader('Content-Type', 'application/json');

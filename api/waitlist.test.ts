@@ -2,6 +2,55 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { handleWaitlistRequest, WaitlistResponse, WaitlistSuccessResponse } from './waitlist';
 
+const validPayload = {
+  name: 'Launch QA', email: 'launch-qa@example.com', accountSize: 100000,
+  step: 'two-step', privacyConsent: true,
+};
+
+test('anonymous credentials cannot enable server persistence', async () => {
+  const previous = { ...process.env };
+  const originalFetch = global.fetch;
+  process.env.SUPABASE_URL = 'https://test.supabase.co';
+  process.env.SUPABASE_ANON_KEY = 'public-key';
+  delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+  let called = false;
+  global.fetch = async () => { called = true; throw new Error('must not call'); };
+  try {
+    const result = await handleWaitlistRequest(validPayload);
+    assert.equal(result.status, 503);
+    assert.equal(result.body.success, false);
+    assert.equal(called, false);
+  } finally {
+    global.fetch = originalFetch;
+    for (const key of ['SUPABASE_URL', 'SUPABASE_ANON_KEY', 'SUPABASE_SERVICE_ROLE_KEY']) {
+      if (previous[key] === undefined) delete process.env[key];
+      else process.env[key] = previous[key];
+    }
+  }
+});
+
+test('database responses without one record ID never confirm persistence', async () => {
+  const originalFetch = global.fetch;
+  const previousUrl = process.env.SUPABASE_URL;
+  const previousKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  process.env.SUPABASE_URL = 'https://test.supabase.co';
+  process.env.SUPABASE_SERVICE_ROLE_KEY = 'server-key';
+  try {
+    for (const data of [[], [{}], [null], [{ id: '' }], [{ id: 123 }], [{ id: 'a' }, { id: 'b' }]]) {
+      global.fetch = async () => new Response(JSON.stringify(data), { status: 201 });
+      const result = await handleWaitlistRequest(validPayload);
+      assert.equal(result.status, 500);
+      assert.equal(result.body.success, false);
+    }
+  } finally {
+    global.fetch = originalFetch;
+    if (previousUrl === undefined) delete process.env.SUPABASE_URL;
+    else process.env.SUPABASE_URL = previousUrl;
+    if (previousKey === undefined) delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+    else process.env.SUPABASE_SERVICE_ROLE_KEY = previousKey;
+  }
+});
+
 test('handleWaitlistRequest rejects invalid email', async () => {
   const result = await handleWaitlistRequest({
     name: 'Test Trader',
