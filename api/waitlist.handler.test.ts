@@ -234,9 +234,11 @@ test('Vercel handler: successful mocked persistence', async () => {
     assert.equal(body.challenge_type, 'two-step');
     assert.equal(body.privacy_accepted, true);
 
+    // Return database-generated UUID (simulating Supabase gen_random_uuid())
+    const dbGeneratedId = 'db-uuid-12345-67890-abcdef';
     return {
       ok: true,
-      json: async () => [{ id: 'wq_mock_123', ...body }],
+      json: async () => [{ id: dbGeneratedId, ...body }],
     } as Response;
   };
 
@@ -258,7 +260,8 @@ test('Vercel handler: successful mocked persistence', async () => {
     assert.equal(res.body.success, true);
     assert.equal(res.body.persisted, true);
     assert.equal(res.body.provider, 'supabase');
-    assert.ok(typeof res.body.id === 'string' && res.body.id.startsWith('wq_'));
+    // Use the database-generated UUID from the Supabase response
+    assert.equal(res.body.id, 'db-uuid-12345-67890-abcdef');
     assert.equal(res.body.message, 'Evaluation waitlist application successfully recorded.');
   } finally {
     global.fetch = originalFetch;
@@ -404,9 +407,11 @@ test('Vercel handler: concurrent submissions handled correctly', async () => {
   global.fetch = async () => {
     callCount++;
     if (callCount === 1) {
+      // Return database-generated UUID for first successful insert
+      const dbGeneratedId = 'db-uuid-concurrent-12345';
       return {
         ok: true,
-        json: async () => [{ id: 'wq_first', email: 'concurrent@example.com' }],
+        json: async () => [{ id: dbGeneratedId, email: 'concurrent@example.com' }],
       } as Response;
     }
     // Second call - duplicate
@@ -452,6 +457,10 @@ test('Vercel handler: concurrent submissions handled correctly', async () => {
 
     assert.equal(successCount, 1);
     assert.equal(duplicateCount, 1);
+    // Verify the successful response uses the database-generated UUID
+    const successRes = [res1, res2].find(r => r.statusCode === 201);
+    assert.ok(successRes);
+    assert.equal(successRes!.body.id, 'db-uuid-concurrent-12345');
   } finally {
     global.fetch = originalFetch;
     delete process.env.SUPABASE_URL;

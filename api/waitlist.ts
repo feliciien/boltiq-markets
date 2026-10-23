@@ -134,14 +134,13 @@ export async function handleWaitlistRequest(body: unknown): Promise<{ status: nu
   }
 
   const entry = {
-    id: `wq_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
-    name: validatedName.trim().substring(0, 100) || 'Anonymous Trader',
-    email: validatedEmail.toLowerCase().trim(),
-    accountSize: parsedSize,
-    step: step as 'one-step' | 'two-step',
-    privacyConsent: true,
-    createdAt: new Date().toISOString(),
-  };
+      name: validatedName.trim().substring(0, 100) || 'Anonymous Trader',
+      email: validatedEmail.toLowerCase().trim(),
+      accountSize: parsedSize,
+      step: step as 'one-step' | 'two-step',
+      privacyConsent: true,
+      createdAt: new Date().toISOString(),
+    };
 
   // 5. Persistence Layer — truthful behavior
   const supabaseUrl = process.env.SUPABASE_URL;
@@ -231,16 +230,20 @@ export async function handleWaitlistRequest(body: unknown): Promise<{ status: nu
       };
     }
 
-    return {
-      status: 201,
-      body: {
-        success: true,
-        persisted: true,
-        provider: 'supabase',
-        id: entry.id,
-        message: 'Evaluation waitlist application successfully recorded.',
-      },
-    };
+        // Use the database-generated UUID from the inserted row
+        const insertedRow = data[0];
+        const dbId = insertedRow.id;
+
+        return {
+          status: 201,
+          body: {
+            success: true,
+            persisted: true,
+            provider: 'supabase',
+            id: dbId,
+            message: 'Evaluation waitlist application successfully recorded.',
+          },
+        };
   } catch (dbErr) {
     // Sanitized logging: never log raw error details that might contain secrets
     console.error('[waitlist] Unexpected database error');

@@ -231,9 +231,11 @@ test('handleWaitlistRequest persists successfully with mocked Supabase', async (
     assert.equal(body.challenge_type, 'two-step');
     assert.equal(body.privacy_accepted, true);
     
+    // Return database-generated UUID (simulating Supabase gen_random_uuid())
+    const dbGeneratedId = 'db-uuid-12345-67890-abcdef';
     mockResponse = {
       ok: true,
-      json: async () => [{ id: 'wq_mock_123', ...body }],
+      json: async () => [{ id: dbGeneratedId, ...body }],
     };
     return mockResponse as Response;
   };
@@ -251,8 +253,8 @@ test('handleWaitlistRequest persists successfully with mocked Supabase', async (
     assert.equal(result.body.success, true);
     assert.equal(result.body.persisted, true);
     assert.equal(result.body.provider, 'supabase');
-    // The function generates its own ID (wq_<timestamp>_<random>), not the DB ID
-    assert.ok(typeof result.body.id === 'string' && result.body.id.startsWith('wq_'));
+    // Use the database-generated UUID from the Supabase response
+    assert.equal(result.body.id, 'db-uuid-12345-67890-abcdef');
     assert.equal(result.body.message, 'Evaluation waitlist application successfully recorded.');
   } finally {
     global.fetch = originalFetch;
