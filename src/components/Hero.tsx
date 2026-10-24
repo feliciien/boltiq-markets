@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import heroImage from '../assets/images/hero_fintech_terminal_1792773584526.jpg';
 import { ArrowRight, Activity, Terminal, Shield, Cpu, Play, Check } from 'lucide-react';
 
 interface HeroProps {
@@ -135,7 +136,7 @@ export default function Hero({ onExploreEAs, onLaunchLab }: HeroProps) {
               {/* Terminal Image Container */}
               <div className="relative h-48 sm:h-56 w-full overflow-hidden bg-slate-950">
                 <img
-                  src="/src/assets/images/hero_fintech_terminal_1792773584526.jpg"
+                  src={heroImage}
                   alt="BoltIQ Markets Quantitative Trading Terminal"
                   referrerPolicy="no-referrer"
                   className="w-full h-full object-cover object-center opacity-80"

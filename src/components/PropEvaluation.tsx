@@ -86,7 +86,7 @@ export default function PropEvaluation() {
         return;
       }
 
-      if (!res.ok || !data.success) {
+      if (!res.ok || data.success !== true || data.persisted !== true || !data.id) {
         setFormError(data.error || 'Failed to submit application. Please check your details and try again.');
         return;
       }

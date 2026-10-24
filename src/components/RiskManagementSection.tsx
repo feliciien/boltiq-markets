@@ -1,4 +1,5 @@
 import { Shield, AlertTriangle, Cpu, Clock, CheckCircle } from 'lucide-react';
+import executionImage from '../assets/images/algo_execution_engine_1792773585644.jpg';
 
 export default function RiskManagementSection() {
   const riskProtocols = [
@@ -50,7 +51,7 @@ export default function RiskManagementSection() {
           <div className="lg:col-span-5 flex flex-col justify-between bg-[#080e1a] border border-slate-800 rounded-xl overflow-hidden shadow-xl">
             <div className="relative h-64 sm:h-72 w-full overflow-hidden bg-slate-950">
               <img
-                src="/src/assets/images/algo_execution_engine_1792773585644.jpg"
+                src={executionImage}
                 alt="BoltIQ Algorithmic Execution Module Hardware"
                 referrerPolicy="no-referrer"
                 className="w-full h-full object-cover object-center"

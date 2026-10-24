@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import labImage from '../assets/images/lab_backtest_station_1792773586094.jpg';
 import { Play, RotateCcw, Download, Sparkles, Sliders, CheckCircle2 } from 'lucide-react';
 import { BACKTEST_PRESETS, BacktestPreset } from '../data/marketData';
 import {
@@ -282,7 +283,7 @@ export default function BacktestLaboratory() {
               <div className="pt-2 border-t border-slate-800">
                 <div className="rounded overflow-hidden border border-slate-800 relative">
                   <img
-                    src="/src/assets/images/lab_backtest_station_1792773586094.jpg"
+                    src={labImage}
                     alt="BoltIQ Research Workstation"
                     referrerPolicy="no-referrer"
                     className="w-full h-28 object-cover object-center opacity-70"
