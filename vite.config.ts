@@ -1,45 +1,27 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
-import {defineConfig} from 'vite';
+import {defineConfig, loadEnv} from 'vite';
+import waitlistHandler from './api/waitlist.ts';
 
 function apiPlugin() {
   return {
     name: 'api-waitlist-plugin',
     configureServer(server: any) {
       server.middlewares.use('/api/waitlist', async (req: any, res: any) => {
-        if (req.method !== 'POST') {
-          res.statusCode = 405;
-          res.setHeader('Content-Type', 'application/json');
-          res.end(JSON.stringify({ success: false, error: 'Method Not Allowed' }));
-          return;
-        }
-
-        let bodyRaw = '';
-        req.on('data', (chunk: any) => {
-          bodyRaw += chunk;
-        });
-        req.on('end', async () => {
-          try {
-            const { handleWaitlistRequest } = await import('./api/waitlist.ts');
-            const parsed = JSON.parse(bodyRaw || '{}');
-            const clientIp = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '127.0.0.1';
-            const result = await handleWaitlistRequest(parsed);
-            res.statusCode = result.status;
-            res.setHeader('Content-Type', 'application/json');
-            res.end(JSON.stringify(result.body));
-          } catch (err: any) {
-            res.statusCode = 500;
-            res.setHeader('Content-Type', 'application/json');
-            res.end(JSON.stringify({ success: false, error: err.message || 'Server error' }));
-          }
-        });
+        res.status = (code: number) => { res.statusCode = code; return res; };
+        res.json = (data: unknown) => { res.end(JSON.stringify(data)); return res; };
+        await waitlistHandler(req, res);
       });
     },
   };
 }
 
-export default defineConfig(() => {
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '');
+  for (const key of ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY']) {
+    if (process.env[key] === undefined && env[key]) process.env[key] = env[key];
+  }
   return {
     plugins: [react(), tailwindcss(), apiPlugin()],
     resolve: {

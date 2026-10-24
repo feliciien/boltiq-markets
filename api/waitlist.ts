@@ -143,7 +143,11 @@ export async function handleWaitlistRequest(body: unknown): Promise<{ status: nu
     };
 
   // 5. Persistence Layer — truthful behavior
-  const supabaseUrl = process.env.SUPABASE_URL;
+  // Normalize the configured project URL so both base URLs and REST endpoint URLs work.
+  const rawSupabaseUrl = process.env.SUPABASE_URL;
+  const supabaseUrl = rawSupabaseUrl
+    ? rawSupabaseUrl.trim().replace(/\/+$/, '').replace(/\/rest\/v1$/i, '')
+    : undefined;
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!supabaseUrl || !supabaseKey) {
