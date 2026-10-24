@@ -15,11 +15,16 @@ import FAQSection from './components/FAQSection';
 import Footer from './components/Footer';
 import StrategyModal from './components/StrategyModal';
 import ErrorBoundary from './components/ErrorBoundary';
+import LegalPage from './components/LegalPage';
 import { ExpertAdvisor } from './data/marketData';
 import { Analytics } from '@vercel/analytics/react';
 
 export default function App() {
   const [selectedStrategy, setSelectedStrategy] = useState<ExpertAdvisor | null>(null);
+  const pathname = window.location.pathname.replace(/\/+$/, '');
+  if (pathname === '/privacy' || pathname === '/terms') {
+    return <ErrorBoundary><LegalPage kind={pathname === '/privacy' ? 'privacy' : 'terms'} /><Analytics /></ErrorBoundary>;
+  }
 
   const scrollToSection = (id: string) => {
     const el = document.getElementById(id);

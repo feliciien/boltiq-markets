@@ -53,7 +53,7 @@ export default function Navbar({ onOpenWaitlist, onLaunchLab }: NavbarProps) {
           </a>
 
           {/* Zone 2: 4–6 concise single-line text navigation links */}
-          <nav className="hidden lg:flex items-center gap-7 text-sm font-medium text-slate-300">
+          <nav className="hidden xl:flex items-center gap-7 text-sm font-medium text-slate-300">
             {navLinks.map((link) => (
               <a
                 key={link.label}
@@ -83,7 +83,7 @@ export default function Navbar({ onOpenWaitlist, onLaunchLab }: NavbarProps) {
           </div>
 
           {/* Mobile menu trigger */}
-          <div className="flex lg:hidden items-center">
+          <div className="flex xl:hidden items-center">
             <button
               type="button"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -99,7 +99,7 @@ export default function Navbar({ onOpenWaitlist, onLaunchLab }: NavbarProps) {
 
       {/* Mobile drawer */}
       {mobileMenuOpen && (
-        <div className="lg:hidden border-t border-slate-800 bg-[#060b14] px-4 pt-3 pb-6 space-y-3">
+        <div className="xl:hidden border-t border-slate-800 bg-[#060b14] px-4 pt-3 pb-6 space-y-3">
           <nav className="flex flex-col space-y-2">
             {navLinks.map((link) => (
               <a

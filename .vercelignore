@@ -1,0 +1,10 @@
+.aistudio
+.node_modules.bak-*/
+PHASE1_FINAL_REPORT.md
+.env*
+!.env.example
+script.py
+**/*.bak
+api/*.test.ts
+supabase
+docs

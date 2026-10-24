@@ -413,7 +413,8 @@ export default function PropEvaluation() {
                       className="mt-0.5 accent-amber-400 rounded cursor-pointer"
                     />
                     <label htmlFor={consentInputId} className="text-[11px] text-slate-300 leading-snug cursor-pointer">
-                      I agree to receive simulated evaluation challenge invitations and accept the WorkFusionApp, Inc. privacy policy.
+                      I agree to receive simulated evaluation challenge invitations and accept the WorkFusionApp, Inc.{' '}
+                      <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-amber-300 underline underline-offset-2">Privacy Policy</a>.
                     </label>
                   </div>
 

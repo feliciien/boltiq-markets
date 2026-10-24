@@ -34,8 +34,8 @@ export default function EAMarketplace({ onSelectStrategy }: EAMarketplaceProps) 
     <section id="marketplace" className="py-20 bg-[#060b14] border-t border-slate-800/80">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-10 border-b border-slate-800/80">
-          <div>
+        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 pb-10 border-b border-slate-800/80">
+          <div className="min-w-0">
             <div className="flex items-center gap-2 text-xs font-mono text-amber-400 mb-2 uppercase tracking-wider">
               <span>Algorithmic Catalog</span>
               <span aria-hidden="true" className="text-slate-600">·</span>
@@ -52,8 +52,8 @@ export default function EAMarketplace({ onSelectStrategy }: EAMarketplaceProps) 
           </div>
 
           {/* Search & Filter Bar */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-            <div className="relative">
+          <div className="flex min-w-0 max-w-full flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            <div className="relative min-w-0">
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
@@ -65,7 +65,7 @@ export default function EAMarketplace({ onSelectStrategy }: EAMarketplaceProps) 
             </div>
 
             {/* Segmented Filter Buttons (allowed interactive filter control) */}
-            <div className="flex items-center gap-1 p-1 bg-[#0b1220] rounded-md border border-slate-800 overflow-x-auto">
+            <div className="flex min-w-0 max-w-full items-center gap-1 p-1 bg-[#0b1220] rounded-md border border-slate-800 overflow-x-auto">
               {assetFilters.map((filter) => (
                 <button
                   key={filter}

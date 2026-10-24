@@ -114,11 +114,11 @@ export default function Footer({ onOpenWaitlist, onLaunchLab }: FooterProps) {
           </div>
 
           <div className="flex items-center gap-4 text-slate-400">
-            <a href="#faq" className="hover:text-slate-300 transition-colors">Terms of Service</a>
+            <a href="/terms" className="hover:text-slate-300 transition-colors">Terms of Service</a>
             <span>·</span>
-            <a href="#faq" className="hover:text-slate-300 transition-colors">Privacy Policy</a>
+            <a href="/privacy" className="hover:text-slate-300 transition-colors">Privacy Policy</a>
             <span>·</span>
-            <a href="#faq" className="hover:text-slate-300 transition-colors">Risk Policy</a>
+            <a href="/terms#risk" className="hover:text-slate-300 transition-colors">Risk Policy</a>
             <span>·</span>
             <span className="text-slate-400 font-mono">v1.0.0-prod</span>
           </div>

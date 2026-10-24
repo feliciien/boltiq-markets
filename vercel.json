@@ -1,6 +1,11 @@
 {
   "framework": "vite",
+  "crons": [{ "path": "/api/waitlist-retention", "schedule": "0 3 * * *" }],
   "rewrites": [
+    {
+      "source": "/api/waitlist-retention",
+      "destination": "/api/waitlist-retention"
+    },
     {
       "source": "/api/waitlist",
       "destination": "/api/waitlist"
